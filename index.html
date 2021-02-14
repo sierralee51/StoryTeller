@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>StoryTellerTwo</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div id="onStart", class = "content">
+      <!-- <div id = "title"> -->
+        <h1 id = "title">StoryTeller</h1>
+      <!-- </div> -->
+      <form id="user" action="">
+        <input id="username" autocomplete="off" placeholder="Username"/><button>Join</button>
+      </form>
+    </div>
+
+    <div id="lobby">
+      <!-- <div id = "top">
+        <h1 class = "big-text"> Current Players </h1>
+      </div> -->
+<div class = "column", id = "right">
+      </div>
+      <div class = "column", id = "left">
+      </div>
+      
+      <div class = "column", id = "middle">
+        <h1 class = "big-text"> Current Players </h1>
+        <ul id="players"></ul>
+        <button id="startButton">Start</button>
+      </div>
+
+      
+    </div>
+
+    <div id="during">
+      <h1 id="CurrentPlayer"></h1>
+      <h2 id="CurrentRound"></h2>
+      <ul id="messages"></ul>
+      <form id="form" action="">
+        <input id="input" autocomplete="off" /><button>Send</button>
+      </form>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      var socket = io(); // used to communicate with the other sockets
+      
+      // Player Variables
+      var id = ""; // username of player
+      var nameChosen = false; // whether name needs to be chosen
+      var turn = false; // players turn
+      
+      // Game Variables
+      var gameInProgress = false; // whether a game is in progress
+      socket.emit('getStatus'); // requests server status
+      // whenever the server sends out a gameStatus update will update current game progress
+      socket.on('gameStatus', function(status) {
+        gameInProgress = status;
+      });
+
+      // Start Screen Elements
+      var user = document.getElementById('user'); // form for entering username
+      var username = document.getElementById('username'); // the field for entering username
+      var onStart = document.getElementById('onStart'); // the whole start screen
+
+      // Lobby Screen Elements
+      var lobby = document.getElementById('lobby'); // the whole lobby screen
+      lobby.style.display = "none"; // lobby starts off invisible
+      var players = document.getElementById('players'); // the list of players
+      var startButton = document.getElementById('startButton'); // the start game button
+
+      // Game Screen Elements
+      var during = document.getElementById("during"); // the whole game screen
+      during.style.display = "none"; // sets the game screen to invisible at first
+      var message = document.getElementById('messages'); //
+      var form = document.getElementById('form'); // The whole text entering
+      var input = document.getElementById('input'); // The text and send button
+      var cPlay = document.getElementById('CurrentPlayer'); // Displays the current player
+      var cRound = document.getElementById('CurrentRound');
+
+      // When the player hits join
+      user.addEventListener('submit', function(e) {
+        e.preventDefault();
+        // if they entered a username
+        if(username.value) {
+          // tell the server the username
+          socket.emit('join', username.value);
+          // set id to that username
+          id = username.value;
+          // set the player's name chosen to true
+          nameChosen = true;
+          // hide the start screen
+          onStart.style.display = "none";
+          // decide whether to go to the lobby or game
+          if (gameInProgress) {
+            // show game
+            during.style.display = "block";
+          } else {
+            // show lobby
+            lobby.style.display = "block";
+          }
+        }
+      });
+
+      // When a player hits start game
+      startButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        // tell the server to start the game
+        socket.emit('startGame');
+        // hide the lobby
+        lobby.style.display = "none";
+        // show the game
+        during.style.display = "block";
+      });
+
+      // listens for if game has started
+      socket.on('startGame', function() {
+        // sets game in progress to true
+        gameInProgress = true;
+        // if the player has chosen a name
+        if (nameChosen) {
+          // hide start screen
+          onStart.style.display = "none";
+          // hide lobby
+          lobby.style.display = "none";
+          // show game
+          during.style.display = "block";
+        }
+      });
+
+      // When the player hits send
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        // if their turn and not sending an empty message
+        if(turn && input.value) {
+          // tell the server the message
+          socket.emit('chat message', input.value);
+          // reset the chat bar to empty
+          input.value = '';
+          // give up turn
+          turn = false;
+        }
+      });
+
+      // Listening for the server to update the chat
+      socket.on('chat message', function(msg) {
+          // create a new list item
+          var item = document.createElement('li');
+          // set that list item to have the text of the message
+          item.textContent = msg;
+          // add that item to the list of current story messages
+          messages.appendChild(item);
+          // add a scroll
+          window.scollTo(0, document.body.scrollHeight);
+      });
+
+      // Listening for any updates to the player base
+      socket.on('update players', function(people) {
+        // set the current players to empty
+        document.getElementById("players").innerHTML = "";
+        // for each person in the given list
+        people.forEach(function (item, index) {
+          // create a new list item
+          var i = document.createElement('li');
+          // set that item's text to a players name
+          i.textContent = item;
+          // add that item to the list
+          players.appendChild(i);
+        });
+        // add a scroll
+        window.scollTo(0, document.body.scrollHeight);
+      });
+
+      // Listening for when the next players turn is
+      socket.on('selectedUser', function(currPlayer){
+        // sets the current player counter to the given player
+        cPlay.textContent = "Your turn: " + currPlayer;
+        // if the current player if this one
+        if (currPlayer === id) {
+          // set turn to true
+          turn = true;
+          }
+      })
+
+      socket.on('current round', function(currRound) {
+        cRound.textContent = "Round: " + currRound;
+      });
+
+      // Listening for server to hear when to clear chat
+      socket.on('clear chat', function() {
+        // clear chat
+        messages.innerHTML = "";
+      });
+    </script>
+  </body>
+</html>
